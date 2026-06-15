@@ -16,12 +16,38 @@ const endLeaderboardEl = document.getElementById("endLeaderboard");
 const refreshTop = document.getElementById("refreshTop");
 const friendCards = [...document.querySelectorAll(".friend-card")];
 
-const ASSET_VERSION = "20260615-webp-2";
+const ASSET_VERSION = "20260615-webp-4";
 const BASE_PATH = document.body.dataset.basePath || "";
 let W = 1920;
 let H = 1080;
 let playerSize = 132;
 let portraitGame = false;
+const DEFAULT_MOBILE_FOREGROUND_ZOOM = 1.3;
+const ZOOM_STORAGE_KEY = "gimmeBeerForegroundZoomV2";
+const urlParams = new URLSearchParams(window.location.search);
+
+function parseZoom(raw) {
+  if (!raw) return null;
+  const value = Number.parseFloat(raw.replace(",", "."));
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0.9, Math.min(1.35, value));
+}
+
+function readMobileForegroundZoom() {
+  return parseZoom(urlParams.get("zoom")) || parseZoom(localStorage.getItem(ZOOM_STORAGE_KEY)) || DEFAULT_MOBILE_FOREGROUND_ZOOM;
+}
+
+let mobileForegroundZoom = readMobileForegroundZoom();
+
+window.setBeerZoom = (value) => {
+  const zoom = parseZoom(String(value));
+  if (!zoom) return mobileForegroundZoom;
+  mobileForegroundZoom = zoom;
+  localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom));
+  if (!running) draw();
+  return zoom;
+};
+window.getBeerZoom = () => mobileForegroundZoom;
 const backgrounds = [
   { src: "assets/bg-church.webp", label: "Костёл" },
   { src: "assets/bg-culture.webp", label: "Дом культуры" },
@@ -34,6 +60,8 @@ const backgrounds = [
   { src: "assets/bg-center-church.webp", label: "Церковь в центре" },
   { src: "assets/bg-orthodox.webp", label: "Православный храм" },
   { src: "assets/bg-memorial.webp", label: "Мемориал" },
+  { src: "assets/bg-mound-glory.webp", label: "Курган Славы" },
+  { src: "assets/bg-school.webp", label: "Школа" },
   { src: "assets/bg-aerial.webp", label: "Панорама города" },
   { src: "assets/bg-stadium-victoria.webp", label: "Стадион Виктория" },
 ];
@@ -92,7 +120,7 @@ function playerBaseY() {
 }
 
 function foregroundZoom() {
-  return portraitGame ? 1.08 : 1;
+  return portraitGame ? mobileForegroundZoom : 1;
 }
 
 function syncCanvasSize() {
@@ -289,6 +317,19 @@ function randomBackgroundIndex() {
   return Math.floor(Math.random() * backgrounds.length);
 }
 
+window.listBeerBg = () => backgrounds.map((bg, index) => `${index}: ${bg.label}`);
+window.setBeerBg = (value) => {
+  const query = String(value).toLowerCase();
+  const index = Number.isFinite(Number(value))
+    ? Number(value)
+    : backgrounds.findIndex((bg) => bg.label.toLowerCase().includes(query));
+  if (index < 0 || index >= backgrounds.length) return window.listBeerBg();
+  state.bgIndex = index;
+  state.bgScroll = 0;
+  draw();
+  return backgrounds[index].label;
+};
+
 function reset(options = {}) {
   syncCanvasSize();
   state.score = 0;
@@ -386,7 +427,7 @@ function circleHitsRect(cx, cy, r, rect) {
 
 function update(dt) {
   const p = state.player;
-  state.bgScroll = 0;
+  state.bgScroll += dt * (portraitGame ? 0.44 : 0.34);
   p.vy += (2200 + state.drunk * 14) * dt;
   p.y += p.vy * dt;
   p.x = playerBaseX() + Math.sin(performance.now() / 180) * Math.min(34, state.drunk * 1.8);
@@ -471,7 +512,9 @@ function drawCoverImage(img, x, y, w, h) {
 
 function drawBackground() {
   const bg = images[backgrounds[state.bgIndex].src];
-  drawCoverImage(bg, 0, 0, W, H);
+  const travel = portraitGame ? 54 : 42;
+  const drift = Math.sin(state.bgScroll) * travel;
+  drawCoverImage(bg, -travel + drift, 0, W + travel * 2, H);
   ctx.fillStyle = `rgba(255, 245, 205, ${0.04 + Math.min(0.08, state.drunk * 0.003)})`;
   ctx.fillRect(0, 0, W, H);
 }
