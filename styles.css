@@ -375,7 +375,7 @@ input {
     height: 100%;
     max-height: none;
     object-fit: cover;
-    transform: scale(1.04);
+    transform: scale(1.08);
     transform-origin: center center;
   }
 
