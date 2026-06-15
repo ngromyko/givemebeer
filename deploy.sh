@@ -111,7 +111,8 @@ conf.write_text(s)
 PY
 
 systemctl daemon-reload
-systemctl enable --now givmebeer
+systemctl enable givmebeer
+systemctl restart givmebeer
 nginx -t
 systemctl reload nginx
 

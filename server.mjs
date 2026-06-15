@@ -125,7 +125,7 @@ createServer(async (req, res) => {
     if (req.method === "GET" && apiPath.startsWith("/api/leaderboard")) {
       const rows = dedupeRows(await getScores());
       await saveScores(rows);
-      sendJson(res, 200, rows.slice(0, 10));
+      sendJson(res, 200, rows.slice(0, 5));
       return;
     }
 
@@ -146,7 +146,7 @@ createServer(async (req, res) => {
       rows.push(...filtered);
       rows.sort((a, b) => b.score - a.score || String(a.createdAt).localeCompare(String(b.createdAt)));
       await saveScores(rows);
-      sendJson(res, 200, rows.slice(0, 10));
+      sendJson(res, 200, rows.slice(0, 5));
       return;
     }
 

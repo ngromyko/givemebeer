@@ -208,7 +208,7 @@ async function loadLeaderboard() {
 function renderLeaderboard(rows) {
   leaderboardEl.innerHTML = "";
   endLeaderboardEl.innerHTML = "";
-  const top = rows.slice(0, 10);
+  const top = rows.slice(0, 5);
   if (!top.length) {
     const li = document.createElement("li");
     li.textContent = "пока пусто";
@@ -246,7 +246,7 @@ async function saveScore(name, score) {
       filtered.push(previous);
     }
     filtered.sort((a, b) => b.score - a.score);
-    localStorage.setItem("flappySmolevichiTop", JSON.stringify(filtered.slice(0, 10)));
+    localStorage.setItem("flappySmolevichiTop", JSON.stringify(filtered.slice(0, 5)));
     renderLeaderboard(filtered);
     finalText.textContent = "Сохранено локально, сервер топа недоступен.";
   }
