@@ -1,4 +1,4 @@
-const CACHE_NAME = "pivo-nesi-v20260615-webp-4";
+const CACHE_NAME = "pivo-nesi-v20260615-webp-5";
 const CORE_ASSETS = [
   "./",
   "index.html",
@@ -24,6 +24,7 @@ const CORE_ASSETS = [
   "assets/bg-memorial.webp",
   "assets/bg-mound-glory.webp",
   "assets/bg-school.webp",
+  "assets/bg-rodina.webp",
   "assets/bg-aerial.webp",
   "assets/bg-stadium-victoria.webp"
 ];

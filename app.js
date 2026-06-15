@@ -16,7 +16,7 @@ const endLeaderboardEl = document.getElementById("endLeaderboard");
 const refreshTop = document.getElementById("refreshTop");
 const friendCards = [...document.querySelectorAll(".friend-card")];
 
-const ASSET_VERSION = "20260615-webp-4";
+const ASSET_VERSION = "20260615-webp-5";
 const BASE_PATH = document.body.dataset.basePath || "";
 let W = 1920;
 let H = 1080;
@@ -62,6 +62,7 @@ const backgrounds = [
   { src: "assets/bg-memorial.webp", label: "Мемориал" },
   { src: "assets/bg-mound-glory.webp", label: "Курган Славы" },
   { src: "assets/bg-school.webp", label: "Школа" },
+  { src: "assets/bg-rodina.webp", label: "Родина" },
   { src: "assets/bg-aerial.webp", label: "Панорама города" },
   { src: "assets/bg-stadium-victoria.webp", label: "Стадион Виктория" },
 ];
