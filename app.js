@@ -43,6 +43,8 @@ const friends = [
   "assets/friend-3.png",
   "assets/friend-4.png",
   "assets/friend-5.png",
+  "assets/friend-6.png",
+  "assets/friend-7.png",
 ];
 const beers = [
   { src: "assets/beer-zolotoe-05.png", label: "Золотое 0.5", liters: "0.5", points: 5, drunk: 1, size: 76, weight: 42 },
@@ -53,6 +55,7 @@ const beers = [
   { src: "assets/beer-zatecky.png", label: "Zatecky Gus", liters: "1", points: 12, drunk: 2.3, size: 92, weight: 6 },
 ];
 const images = {};
+const gateCache = new Map();
 let selectedFriend = 0;
 let running = false;
 let over = false;
@@ -94,6 +97,7 @@ function syncCanvasSize() {
   playerSize = portraitGame ? 118 : 132;
   canvas.width = W;
   canvas.height = H;
+  gateCache.clear();
   canvas.classList.toggle("portrait-canvas", portraitGame);
 }
 
@@ -431,25 +435,46 @@ function drawBackground() {
   ctx.fillRect(0, 0, W, H);
 }
 
-function drawGate(gate) {
+function getGateSprite(type, visualW) {
   const top = images["assets/obstacle-top.png"];
   const bottom = images["assets/obstacle-bottom.png"];
+  const source = type === "top" ? top : bottom;
+  if (!source) return null;
+  const key = `${type}:${visualW}:${H}`;
+  if (gateCache.has(key)) return gateCache.get(key);
+
+  const ratio = source.height / source.width;
+  const tileH = Math.ceil(visualW * ratio);
+  const step = Math.max(1, Math.floor(tileH * 0.92));
+  const buffer = document.createElement("canvas");
+  buffer.width = Math.ceil(visualW + 42);
+  buffer.height = Math.ceil(H + tileH * 2);
+  const bctx = buffer.getContext("2d");
+  const x = Math.floor((buffer.width - visualW) / 2);
+
+  bctx.save();
+  bctx.shadowColor = "rgba(0, 0, 0, 0.32)";
+  bctx.shadowBlur = portraitGame ? 10 : 12;
+  bctx.shadowOffsetX = portraitGame ? 6 : 7;
+  bctx.shadowOffsetY = portraitGame ? 6 : 7;
+  for (let y = type === "top" ? buffer.height - tileH : 0; type === "top" ? y >= -tileH : y < buffer.height; y += type === "top" ? -step : step) {
+    bctx.drawImage(source, x, y, visualW, tileH);
+  }
+  bctx.restore();
+
+  const sprite = { canvas: buffer, padX: x, tileH };
+  gateCache.set(key, sprite);
+  return sprite;
+}
+
+function drawGate(gate) {
   const visualW = portraitGame ? 138 : gate.w + 56;
-  const step = visualW * (top.height / top.width) * 0.92;
-  const tileH = visualW * (top.height / top.width);
+  const topSprite = getGateSprite("top", visualW);
+  const bottomSprite = getGateSprite("bottom", visualW);
+  if (!topSprite || !bottomSprite) return;
   const x = gate.x + gate.w / 2 - visualW / 2;
-  ctx.save();
-  ctx.shadowColor = "rgba(0, 0, 0, 0.36)";
-  ctx.shadowBlur = portraitGame ? 14 : 18;
-  ctx.shadowOffsetX = portraitGame ? 8 : 10;
-  ctx.shadowOffsetY = portraitGame ? 8 : 10;
-  for (let y = gate.top - tileH; y > -tileH; y -= step) {
-    ctx.drawImage(top, x, y, visualW, tileH);
-  }
-  for (let y = gate.bottom; y < H + tileH; y += step) {
-    ctx.drawImage(bottom, x, y, visualW, tileH);
-  }
-  ctx.restore();
+  ctx.drawImage(topSprite.canvas, x - topSprite.padX, gate.top - topSprite.canvas.height);
+  ctx.drawImage(bottomSprite.canvas, x - bottomSprite.padX, gate.bottom);
 }
 
 function drawWingHalf(wings, side, flap) {
@@ -624,12 +649,12 @@ function drawDrunkOverlay() {
   ctx.globalAlpha = level * 0.035;
   ctx.fillStyle = "#f0bf42";
   ctx.fillRect(0, 0, W, H);
-  ctx.globalAlpha = level * 0.14;
+  ctx.globalAlpha = level * 0.1;
   ctx.strokeStyle = "#d8352f";
-  ctx.lineWidth = 7;
-  for (let y = -40; y < H + 40; y += 95) {
+  ctx.lineWidth = portraitGame ? 5 : 6;
+  for (let y = -40; y < H + 40; y += portraitGame ? 140 : 120) {
     ctx.beginPath();
-    for (let x = -20; x < W + 20; x += 24) {
+    for (let x = -20; x < W + 20; x += 48) {
       const yy = y + Math.sin(x / 40 + performance.now() / 220) * 10 * level;
       if (x === -20) ctx.moveTo(x, yy);
       else ctx.lineTo(x, yy);
@@ -663,8 +688,7 @@ function draw() {
   for (const gate of state.gates) drawGate(gate);
   drawCollectibles();
   drawPopups();
-  if (state.drunk > 9) drawPlayer(-7, 0.32);
-  if (state.drunk > 14) drawPlayer(8, 0.24);
+  if (state.drunk > 14) drawPlayer(-7, 0.22);
   drawPlayer();
   drawSceneLabel();
   ctx.restore();
