@@ -297,20 +297,7 @@ async function saveScore(name, score) {
     renderLeaderboard(leaderboardRows);
     finalText.textContent = "Сохранено в общий топ.";
   } catch {
-    const rows = JSON.parse(localStorage.getItem("flappySmolevichiTop") || "[]");
-    const key = payload.name.trim().toLocaleLowerCase("ru-RU");
-    const previous = rows.find((row) => String(row.name || "").trim().toLocaleLowerCase("ru-RU") === key);
-    const filtered = rows.filter((row) => String(row.name || "").trim().toLocaleLowerCase("ru-RU") !== key);
-    if (!previous || payload.score > Number(previous.score || 0)) {
-      filtered.push({ ...payload, createdAt: new Date().toISOString() });
-    } else {
-      filtered.push(previous);
-    }
-    filtered.sort((a, b) => b.score - a.score);
-    localStorage.setItem("flappySmolevichiTop", JSON.stringify(filtered.slice(0, 5)));
-    leaderboardRows = filtered.slice(0, 5);
-    renderLeaderboard(leaderboardRows);
-    finalText.textContent = "Сохранено локально, сервер топа недоступен.";
+    finalText.textContent = "Не удалось сохранить в общий топ. Проверь интернет и попробуй еще раз.";
   }
 }
 

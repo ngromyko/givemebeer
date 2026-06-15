@@ -2,10 +2,12 @@
 set -euo pipefail
 
 APP_DIR="/opt/givmebeer"
+DATA_DIR="/var/lib/givmebeer"
 APP_USER="givmebeer"
 PORT="${PORT:-3015}"
 BASE_PATH="/givmebeer"
 PUBLIC_URL="${PUBLIC_URL:-http://78.46.200.74/givmebeer}"
+LEADERBOARD_PATH="${DATA_DIR}/leaderboard.json"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Run as root"
@@ -22,7 +24,15 @@ fi
 
 id -u "${APP_USER}" >/dev/null 2>&1 || useradd --system --home "${APP_DIR}" --shell /usr/sbin/nologin "${APP_USER}"
 mkdir -p "${APP_DIR}"
+mkdir -p "${DATA_DIR}"
+if [[ ! -f "${LEADERBOARD_PATH}" && -f "${APP_DIR}/leaderboard.json" ]]; then
+  cp "${APP_DIR}/leaderboard.json" "${LEADERBOARD_PATH}"
+fi
+if [[ ! -f "${LEADERBOARD_PATH}" ]]; then
+  printf '[]\n' >"${LEADERBOARD_PATH}"
+fi
 chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
+chown -R "${APP_USER}:${APP_USER}" "${DATA_DIR}"
 
 python3 - <<PY
 from pathlib import Path
@@ -45,6 +55,7 @@ Type=simple
 WorkingDirectory=${APP_DIR}
 Environment=PORT=${PORT}
 Environment=BASE_PATH=${BASE_PATH}
+Environment=LEADERBOARD_PATH=${LEADERBOARD_PATH}
 ExecStart=/usr/bin/node ${APP_DIR}/server.mjs
 Restart=always
 RestartSec=3
@@ -114,6 +125,24 @@ systemctl daemon-reload
 systemctl enable givmebeer
 systemctl restart givmebeer
 if systemctl list-unit-files givmebeer-root.service >/dev/null 2>&1; then
+  python3 - <<PY
+from pathlib import Path
+unit = Path("/etc/systemd/system/givmebeer-root.service")
+if unit.exists():
+    s = unit.read_text()
+    lines = [line for line in s.splitlines() if not line.startswith("Environment=LEADERBOARD_PATH=")]
+    out = []
+    inserted = False
+    for line in lines:
+        out.append(line)
+        if line.startswith("Environment=PORT="):
+            out.append("Environment=LEADERBOARD_PATH=${LEADERBOARD_PATH}")
+            inserted = True
+    if not inserted:
+        out.append("Environment=LEADERBOARD_PATH=${LEADERBOARD_PATH}")
+    unit.write_text("\\n".join(out) + "\\n")
+PY
+  systemctl daemon-reload
   systemctl restart givmebeer-root
 fi
 nginx -t

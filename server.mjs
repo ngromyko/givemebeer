@@ -1,11 +1,12 @@
 import { createServer } from "node:http";
-import { readFile, writeFile, stat } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
-import { extname, join, normalize } from "node:path";
+import { dirname, extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
-const leaderboardPath = join(root, "leaderboard.json");
+const leaderboardPath = process.env.LEADERBOARD_PATH || join(root, "leaderboard.json");
+const leaderboardLockPath = `${leaderboardPath}.lock`;
 const port = Number(process.env.PORT || 8765);
 const basePath = (process.env.BASE_PATH || "").replace(/\/+$/, "");
 
@@ -37,7 +38,27 @@ async function getScores() {
 }
 
 async function saveScores(rows) {
-  await writeFile(leaderboardPath, JSON.stringify(dedupeRows(rows).slice(0, 50), null, 2), "utf8");
+  await mkdir(dirname(leaderboardPath), { recursive: true });
+  const tmpPath = `${leaderboardPath}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(tmpPath, JSON.stringify(dedupeRows(rows).slice(0, 50), null, 2), "utf8");
+  await rename(tmpPath, leaderboardPath);
+}
+
+async function withLeaderboardLock(callback) {
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    try {
+      await mkdir(leaderboardLockPath);
+      try {
+        return await callback();
+      } finally {
+        await rm(leaderboardLockPath, { recursive: true, force: true });
+      }
+    } catch (error) {
+      if (error?.code !== "EEXIST") throw error;
+      await new Promise((resolve) => setTimeout(resolve, 25 + Math.random() * 25));
+    }
+  }
+  throw new Error("leaderboard lock timeout");
 }
 
 function nameKey(name) {
@@ -152,7 +173,6 @@ createServer(async (req, res) => {
     const apiPath = basePath && requestPath.startsWith(`${basePath}/api/`) ? requestPath.slice(basePath.length) : requestPath;
     if (req.method === "GET" && apiPath.startsWith("/api/leaderboard")) {
       const rows = dedupeRows(await getScores());
-      await saveScores(rows);
       sendJson(res, 200, rows.slice(0, 5));
       return;
     }
@@ -160,26 +180,26 @@ createServer(async (req, res) => {
     if (req.method === "POST" && apiPath.startsWith("/api/score")) {
       const body = await readJsonBody(req);
       const score = Math.max(0, Math.min(999999, Number.parseInt(body.score, 10) || 0));
-      const rows = dedupeRows(await getScores());
       const name = cleanName(body.name);
-      const qualification = qualifyScore(score, rows, name);
-      if (!qualification.qualifies) {
-        sendJson(res, 409, { error: "not_record", leaderboard: rows.slice(0, 5), topCutoff: qualification.topCutoff });
-        return;
-      }
-      const key = nameKey(name);
-      const filtered = rows.filter((row) => nameKey(row.name) !== key);
-      const previous = qualification.previous;
-      if (!previous || score > Number(previous.score || 0)) {
-        filtered.push({ name, score, createdAt: new Date().toISOString() });
-      } else {
-        filtered.push(previous);
-      }
-      rows.length = 0;
-      rows.push(...filtered);
-      rows.sort((a, b) => b.score - a.score || String(a.createdAt).localeCompare(String(b.createdAt)));
-      await saveScores(rows);
-      sendJson(res, 200, rows.slice(0, 5));
+      const result = await withLeaderboardLock(async () => {
+        const rows = dedupeRows(await getScores());
+        const qualification = qualifyScore(score, rows, name);
+        if (!qualification.qualifies) {
+          return { status: 409, body: { error: "not_record", leaderboard: rows.slice(0, 5), topCutoff: qualification.topCutoff } };
+        }
+        const key = nameKey(name);
+        const filtered = rows.filter((row) => nameKey(row.name) !== key);
+        const previous = qualification.previous;
+        if (!previous || score > Number(previous.score || 0)) {
+          filtered.push({ name, score, createdAt: new Date().toISOString() });
+        } else {
+          filtered.push(previous);
+        }
+        const nextRows = dedupeRows(filtered);
+        await saveScores(nextRows);
+        return { status: 200, body: nextRows.slice(0, 5) };
+      });
+      sendJson(res, result.status, result.body);
       return;
     }
 
