@@ -113,6 +113,9 @@ PY
 systemctl daemon-reload
 systemctl enable givmebeer
 systemctl restart givmebeer
+if systemctl list-unit-files givmebeer-root.service >/dev/null 2>&1; then
+  systemctl restart givmebeer-root
+fi
 nginx -t
 systemctl reload nginx
 
