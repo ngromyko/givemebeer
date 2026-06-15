@@ -63,6 +63,7 @@ let raf = 0;
 let last = 0;
 let audioCtx = null;
 let soundEnabled = localStorage.getItem("flappySmolevichiSound") !== "off";
+let leaderboardRows = [];
 
 const state = {
   score: 0,
@@ -202,11 +203,19 @@ async function loadLeaderboard() {
   try {
     const res = await fetch(`${BASE_PATH}/api/leaderboard`);
     if (!res.ok) throw new Error("top unavailable");
-    renderLeaderboard(await res.json());
+    leaderboardRows = await res.json();
+    renderLeaderboard(leaderboardRows);
+    return leaderboardRows;
   } catch {
-    const local = JSON.parse(localStorage.getItem("flappySmolevichiTop") || "[]");
-    renderLeaderboard(local);
+    leaderboardRows = JSON.parse(localStorage.getItem("flappySmolevichiTop") || "[]");
+    renderLeaderboard(leaderboardRows);
+    return leaderboardRows;
   }
+}
+
+function isRecordScore(score, rows = leaderboardRows) {
+  const top = [...rows].sort((a, b) => Number(b.score || 0) - Number(a.score || 0)).slice(0, 5);
+  return top.length < 5 || score > Number(top.at(-1)?.score || 0);
 }
 
 function renderLeaderboard(rows) {
@@ -230,14 +239,29 @@ function renderLeaderboard(rows) {
 
 async function saveScore(name, score) {
   const payload = { name: name.trim() || "безымянный", score };
+  if (!isRecordScore(score)) {
+    finalText.textContent = "Имя можно оставить только если побит рекорд.";
+    return;
+  }
   try {
     const res = await fetch(`${BASE_PATH}/api/score`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    if (res.status === 409) {
+      const data = await res.json().catch(() => null);
+      if (data?.leaderboard) {
+        leaderboardRows = data.leaderboard;
+        renderLeaderboard(leaderboardRows);
+      }
+      scoreForm.classList.add("hidden");
+      finalText.textContent = "Имя можно оставить только если побит рекорд.";
+      return;
+    }
     if (!res.ok) throw new Error("save failed");
-    renderLeaderboard(await res.json());
+    leaderboardRows = await res.json();
+    renderLeaderboard(leaderboardRows);
     finalText.textContent = "Сохранено в общий топ.";
   } catch {
     const rows = JSON.parse(localStorage.getItem("flappySmolevichiTop") || "[]");
@@ -251,7 +275,8 @@ async function saveScore(name, score) {
     }
     filtered.sort((a, b) => b.score - a.score);
     localStorage.setItem("flappySmolevichiTop", JSON.stringify(filtered.slice(0, 5)));
-    renderLeaderboard(filtered);
+    leaderboardRows = filtered.slice(0, 5);
+    renderLeaderboard(leaderboardRows);
     finalText.textContent = "Сохранено локально, сервер топа недоступен.";
   }
 }
@@ -298,8 +323,20 @@ function gameOver() {
   running = false;
   over = true;
   finalScore.textContent = `${state.score} очков`;
-  finalText.textContent = `Финиш, время пить водку. Собрано пива: ${state.beers}. Оставь имя, чтобы попасть в топ.`;
+  scoreForm.classList.add("hidden");
+  finalText.textContent = `Финиш, время пить водку. Собрано пива: ${state.beers}. Проверяем топ...`;
   endScreen.classList.remove("hidden");
+  loadLeaderboard().then((rows) => {
+    if (!over) return;
+    if (isRecordScore(state.score, rows)) {
+      scoreForm.classList.remove("hidden");
+      finalText.textContent = `Финиш, время пить водку. Собрано пива: ${state.beers}. Рекорд побит, оставь имя.`;
+    } else {
+      scoreForm.classList.add("hidden");
+      const cutoff = rows.length >= 5 ? Number(rows[4]?.score || 0) : 0;
+      finalText.textContent = `Финиш, время пить водку. Собрано пива: ${state.beers}. До топа нужно больше ${cutoff} очков.`;
+    }
+  });
 }
 
 function flap() {

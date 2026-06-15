@@ -74,6 +74,24 @@ function sendJson(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
+function publicUrl(req, pathname = "/") {
+  const proto = String(req.headers["x-forwarded-proto"] || "http").split(",")[0].trim() || "http";
+  const host = req.headers.host || `127.0.0.1:${port}`;
+  return new URL(pathname, `${proto}://${host}`).toString();
+}
+
+function qualifyScore(score, rows, name = "") {
+  const sorted = dedupeRows(rows);
+  const previous = name ? sorted.find((row) => nameKey(row.name) === nameKey(name)) : null;
+  const top = sorted.slice(0, 5);
+  const topCutoff = top.length < 5 ? -1 : Number(top.at(-1)?.score || 0);
+  return {
+    qualifies: top.length < 5 || score > topCutoff || Boolean(previous && score > Number(previous.score || 0)),
+    previous,
+    topCutoff,
+  };
+}
+
 async function serveStatic(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   let pathname = url.pathname;
@@ -103,9 +121,19 @@ async function serveStatic(req, res) {
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": noStore ? "no-store" : "public, max-age=300",
     };
-    if (safePath === "index.html" && basePath) {
+    if (safePath === "index.html") {
       let html = await readFile(target, "utf8");
-      html = html.replace("<body>", `<body data-base-path="${basePath}">`);
+      const pagePath = `${basePath || ""}/`;
+      const previewPath = `${basePath || ""}/tg-preview.png?v=202606142101`;
+      const pageUrl = publicUrl(req, pagePath);
+      const previewUrl = publicUrl(req, previewPath);
+      html = html
+        .replace(/<link rel="canonical" href="[^"]*" \/>/, `<link rel="canonical" href="${pageUrl}" />`)
+        .replace(/<meta property="og:url" content="[^"]*" \/>/, `<meta property="og:url" content="${pageUrl}" />`)
+        .replace(/<meta property="og:image" content="[^"]*" \/>/, `<meta property="og:image" content="${previewUrl}" />`)
+        .replace(/<meta property="og:image:secure_url" content="[^"]*" \/>/, `<meta property="og:image:secure_url" content="${previewUrl}" />`)
+        .replace(/<meta name="twitter:image" content="[^"]*" \/>/, `<meta name="twitter:image" content="${previewUrl}" />`);
+      if (basePath) html = html.replace("<body>", `<body data-base-path="${basePath}">`);
       res.writeHead(200, { ...headers, "Content-Length": Buffer.byteLength(html) });
       res.end(html);
       return;
@@ -134,9 +162,14 @@ createServer(async (req, res) => {
       const score = Math.max(0, Math.min(999999, Number.parseInt(body.score, 10) || 0));
       const rows = dedupeRows(await getScores());
       const name = cleanName(body.name);
+      const qualification = qualifyScore(score, rows, name);
+      if (!qualification.qualifies) {
+        sendJson(res, 409, { error: "not_record", leaderboard: rows.slice(0, 5), topCutoff: qualification.topCutoff });
+        return;
+      }
       const key = nameKey(name);
       const filtered = rows.filter((row) => nameKey(row.name) !== key);
-      const previous = rows.find((row) => nameKey(row.name) === key);
+      const previous = qualification.previous;
       if (!previous || score > Number(previous.score || 0)) {
         filtered.push({ name, score, createdAt: new Date().toISOString() });
       } else {
