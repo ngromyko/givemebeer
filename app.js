@@ -91,6 +91,10 @@ function playerBaseY() {
   return portraitGame ? Math.round(H * 0.42) : 470;
 }
 
+function foregroundZoom() {
+  return portraitGame ? 1.08 : 1;
+}
+
 function syncCanvasSize() {
   portraitGame = isPortraitLayout();
   W = portraitGame ? 1080 : 1920;
@@ -719,16 +723,22 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
   const sx = (Math.random() - 0.5) * state.shake;
   const sy = (Math.random() - 0.5) * state.shake;
+  drawBackground();
   ctx.save();
   ctx.translate(sx, sy);
-  drawBackground();
+  const zoom = foregroundZoom();
+  if (zoom !== 1) {
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-W / 2, -H / 2);
+  }
   for (const gate of state.gates) drawGate(gate);
   drawCollectibles();
   drawPopups();
   if (state.drunk > 14) drawPlayer(-7, 0.22);
   drawPlayer();
-  drawSceneLabel();
   ctx.restore();
+  drawSceneLabel();
   drawDrunkOverlay();
 }
 
