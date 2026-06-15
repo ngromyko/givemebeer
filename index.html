@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Пиво неси</title>
+    <meta name="description" content="Пивной flappy-рейд по Смолевичам: друзья, кеги, пиво и общий топ игроков." />
+    <link rel="canonical" href="https://reed-rational-lecture-feels.trycloudflare.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://reed-rational-lecture-feels.trycloudflare.com/" />
+    <meta property="og:title" content="Пиво неси" />
+    <meta property="og:description" content="Пивной flappy-рейд по Смолевичам: друзья, кеги, пиво и общий топ игроков." />
+    <meta property="og:image" content="https://reed-rational-lecture-feels.trycloudflare.com/tg-preview.png?v=202606142101" />
+    <meta property="og:image:secure_url" content="https://reed-rational-lecture-feels.trycloudflare.com/tg-preview.png?v=202606142101" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Пиво неси" />
+    <meta name="twitter:description" content="Пивной flappy-рейд по Смолевичам: друзья, кеги, пиво и общий топ игроков." />
+    <meta name="twitter:image" content="https://reed-rational-lecture-feels.trycloudflare.com/tg-preview.png?v=202606142101" />
+    <meta name="theme-color" content="#d8352f" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Пиво неси" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="apple-touch-icon" href="favicon-192.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <section class="topbar" aria-label="Панель игры">
+        <div>
+          <h1>Пиво неси</h1>
+          <p>Лор простой: пацан на самодельных крыльях охотится за пивом по Смолевичам.</p>
+        </div>
+        <div class="hud">
+          <span id="score">0</span>
+          <small>очки</small>
+        </div>
+      </section>
+
+      <section class="stage">
+        <canvas id="game" width="1920" height="1080" aria-label="Игра Flappy Bird по Смолевичам"></canvas>
+
+        <div class="menu" id="menu">
+          <div class="menu-copy">
+            <span class="badge">18+ шуточная аркада</span>
+            <h2>Пиво неси</h2>
+          </div>
+
+          <div class="friend-select" aria-label="Выбор друга">
+            <button class="friend-card active" data-friend="0" type="button">
+              <img src="assets/friend-1.png" alt="Тюдор" />
+              <span>Тюдор</span>
+            </button>
+            <button class="friend-card" data-friend="1" type="button">
+              <img src="assets/friend-2.png" alt="чуппапи муння" />
+              <span>чуппапи муння</span>
+            </button>
+            <button class="friend-card" data-friend="2" type="button">
+              <img src="assets/friend-3.png" alt="Масюк" />
+              <span>Масюк</span>
+            </button>
+            <button class="friend-card" data-friend="3" type="button">
+              <img src="assets/friend-4.png" alt="ТАРАС" />
+              <span>ТАРАС</span>
+            </button>
+            <button class="friend-card" data-friend="4" type="button">
+              <img src="assets/friend-5.png" alt="Шнэпс" />
+              <span>Шнэпс</span>
+            </button>
+          </div>
+
+          <button id="startBtn" class="primary" type="button">Старт</button>
+          <button id="soundBtn" type="button">Звук: вкл</button>
+
+          <aside class="leaderboard">
+            <div>
+              <strong>Топ игроков</strong>
+              <button id="refreshTop" type="button" title="Обновить топ">↻</button>
+            </div>
+            <ol id="leaderboard"></ol>
+          </aside>
+        </div>
+
+        <div class="end hidden" id="endScreen">
+          <div class="end-panel">
+            <span class="badge">Финиш, время пить водку</span>
+            <strong id="finalScore">0 очков</strong>
+            <p id="finalText">Оставь имя, чтобы попасть в топ.</p>
+            <form id="scoreForm">
+              <input id="playerName" name="name" maxlength="18" placeholder="Имя для топа" autocomplete="nickname" />
+              <button class="primary" type="submit">Сохранить</button>
+            </form>
+            <div class="end-actions">
+              <button id="againBtn" type="button">Ещё раз</button>
+              <button id="changeDrunkardBtn" type="button">Смена алкаша</button>
+            </div>
+            <aside class="leaderboard end-leaderboard">
+              <div>
+                <strong>Топ игроков</strong>
+              </div>
+              <ol id="endLeaderboard"></ol>
+            </aside>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("sw.js", { scope: "./" }).catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>
